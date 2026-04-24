@@ -117,6 +117,12 @@
               <el-table-column label="姓名" prop="name" width="120" />
               <el-table-column label="职称级别" prop="title" width="150" />
               <el-table-column label="擅长领域" prop="specialty" show-overflow-tooltip />
+              <el-table-column label="挂号费(元)" prop="fee" width="100" align="center">
+                <template #default="scope">
+                  <el-tag type="warning" effect="plain" v-if="scope.row.fee">¥{{ scope.row.fee }}</el-tag>
+                  <span v-else>默认(¥50)</span>
+                </template>
+              </el-table-column>
               <el-table-column label="建档日期" prop="createTime" width="180" align="center" />
               <el-table-column label="操作" width="180" fixed="right" align="right">
                 <template #default="scope">
@@ -190,7 +196,24 @@
               </el-form-item>
             </el-col>
           </el-row>
-          <el-form-item label="统筹调度状态 STATUS" prop="status">
+          <el-row :gutter="24">
+            <el-col :span="12">
+              <el-form-item label="挂号费用 FEE" prop="fee">
+                <el-input-number v-model="form.fee" :min="0" :precision="2" :step="10" placeholder="挂号费" style="width: 100%" />
+              </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item label="统筹调度状态 STATUS" prop="status">
+                <el-radio-group v-model="form.status">
+                  <el-radio-button label="0">在岗</el-radio-button>
+                  <el-radio-button label="1">会诊</el-radio-button>
+                  <el-radio-button label="2">应急</el-radio-button>
+                  <el-radio-button label="3">休假</el-radio-button>
+                </el-radio-group>
+              </el-form-item>
+            </el-col>
+          </el-row>
+          <el-form-item label="统筹调度状态 STATUS" prop="status" v-if="false">
             <el-radio-group v-model="form.status">
               <el-radio-button label="0">在岗</el-radio-button>
               <el-radio-button label="1">会诊</el-radio-button>
@@ -254,13 +277,15 @@ const form = ref({
   title: '主任医师',
   specialty: '',
   status: '0',
+  fee: 50.00,
   avatar: ''
 })
 
 const rules = {
   name: [{ required: true, message: '必须提供姓名标识', trigger: 'blur' }],
   title: [{ required: true, message: '职责层级不可为空', trigger: 'change' }],
-  status: [{ required: true, message: '统筹状态不可为空', trigger: 'change' }]
+  status: [{ required: true, message: '统筹状态不可为空', trigger: 'change' }],
+  fee: [{ required: true, message: '挂号费用不可为空', trigger: 'blur' }]
 }
 
 const getList = async () => {
@@ -378,6 +403,7 @@ const reset = () => {
     title: '主任医师',
     specialty: '',
     status: '0',
+    fee: 50.00,
     avatar: ''
   }
 }

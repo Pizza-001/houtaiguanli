@@ -2,14 +2,14 @@
   <div v-if="!item.hidden">
     <!-- Single menu item -->
     <el-menu-item v-if="theOnlyOneChild" :index="resolvePath(theOnlyOneChild.path)">
-      <el-icon v-if="theOnlyOneChild.meta && theOnlyOneChild.meta.icon">
-        <component :is="getIcon(theOnlyOneChild.meta.icon)" />
+      <el-icon v-if="theOnlyOneChild.meta?.icon || item.meta?.icon">
+        <component :is="theOnlyOneChild.meta?.icon || item.meta?.icon" />
       </el-icon>
       <template #title>
         <div class="menu-item-content">
-          <span class="menu-text">{{ theOnlyOneChild.meta ? theOnlyOneChild.meta.title : item.name }}</span>
-          <span v-if="theOnlyOneChild.meta && theOnlyOneChild.meta.subTitle" class="menu-sub-text">
-            {{ theOnlyOneChild.meta.subTitle }}
+          <span class="menu-text">{{ theOnlyOneChild.meta?.title || item.meta?.title || item.name }}</span>
+          <span v-if="(theOnlyOneChild.meta && theOnlyOneChild.meta.subTitle) || (item.meta && item.meta.subTitle)" class="menu-sub-text">
+            {{ theOnlyOneChild.meta?.subTitle || item.meta?.subTitle }}
           </span>
         </div>
       </template>
@@ -18,8 +18,8 @@
     <!-- Submenu -->
     <el-sub-menu v-else :index="resolvePath(item.path)">
       <template #title>
-        <el-icon v-if="item.meta && item.meta.icon">
-          <component :is="getIcon(item.meta.icon)" />
+        <el-icon v-if="item.meta?.icon">
+          <component :is="item.meta.icon" />
         </el-icon>
         <div class="menu-item-content">
           <span class="menu-text">{{ item.meta ? item.meta.title : item.name }}</span>
@@ -40,7 +40,6 @@
 
 <script setup>
 import { computed } from 'vue'
-import { getIcon } from '@/store/permission'
 
 const props = defineProps({
   item: {
@@ -94,8 +93,13 @@ const resolvePath = (childPath) => {
 .menu-item-content {
   display: flex;
   flex-direction: column;
+  justify-content: center;
   line-height: 1.1;
-  margin-left: 14px;
+  margin-left: 12px;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .menu-text {
@@ -112,6 +116,11 @@ const resolvePath = (childPath) => {
   color: var(--text-secondary);
   opacity: 0.7;
   margin-top: 4px;
+}
+
+:deep(.el-menu-item), :deep(.el-sub-menu__title) {
+  display: flex !important;
+  align-items: center !important;
 }
 
 :deep(.el-menu-item) {
@@ -139,6 +148,7 @@ const resolvePath = (childPath) => {
 }
 
 :deep(.el-sub-menu__title) {
+  height: 50px !important;
   margin: 6px 16px !important;
   border-radius: var(--radius-md) !important;
   color: var(--text-main) !important;
@@ -152,7 +162,15 @@ const resolvePath = (childPath) => {
 :deep(.el-menu-item .el-icon),
 :deep(.el-sub-menu__title .el-icon) {
   color: var(--text-secondary);
-  transition: color 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-size: 20px !important;
+  width: 24px !important;
+  height: 24px !important;
+  margin-right: 12px !important;
+  flex-shrink: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
 :deep(.el-menu-item.is-active .el-icon),

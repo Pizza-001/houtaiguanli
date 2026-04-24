@@ -42,3 +42,12 @@ export function delRole(roleIds) {
     method: 'delete'
   })
 }
+
+// Get menu list (for role permission tree)
+export function listMenu(query) {
+  return request({
+    url: '/system/menu/list',
+    method: 'get',
+    params: query
+  })
+}

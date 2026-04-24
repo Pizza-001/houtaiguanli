@@ -25,61 +25,69 @@
         </div>
       </template>
 
-      <!-- 极致扁平化表格 -->
-      <el-table v-loading="loading" :data="petList" class="sleek-table" :row-style="{height: '80px'}">
-        <el-table-column label="宠物与主人信息" min-width="250">
+      <!-- 树形展示比例：主用户 -> 旗下宠物 -->
+      <el-table 
+        v-loading="loading" 
+        :data="treePetList" 
+        class="sleek-table" 
+        row-key="id"
+        :tree-props="{children: 'children', hasChildren: 'hasChildren'}"
+        default-expand-all
+      >
+        <el-table-column label="归属主体与宠物" min-width="280">
           <template #default="scope">
-            <div class="pet-master-info">
-              <el-avatar class="pet-avatar" :size="48" :src="scope.row.avatar ? (baseUrl + scope.row.avatar) : ''">
+            <div v-if="scope.row.isGroup" class="owner-group-row">
+               <el-icon class="owner-icon"><UserFilled /></el-icon>
+               <span class="owner-label">宠物主:</span>
+               <span class="owner-name text-primary">{{ scope.row.name }}</span>
+               <el-tag size="small" round effect="plain" class="pet-count-tag">{{ scope.row.children.length }} 只宠物</el-tag>
+            </div>
+            <div v-else class="pet-item-row">
+              <el-avatar class="pet-avatar" :size="36" :src="scope.row.avatar ? (baseUrl + scope.row.avatar) : ''">
                 {{ scope.row.name ? scope.row.name.charAt(0) : '宠' }}
               </el-avatar>
               <div class="info-text">
                 <div class="pet-name">{{ scope.row.name || '未知宠物' }}</div>
-                <div class="master-name">主人: {{ scope.row.ownerName || '未记录' }}</div>
               </div>
             </div>
           </template>
         </el-table-column>
         
-        <el-table-column label="联系电话" prop="phone" min-width="150" align="left">
+        <el-table-column label="联系电话" min-width="150" align="left">
           <template #default="scope">
-            <span class="phone-text">{{ scope.row.phone || '-' }}</span>
+            <span class="phone-text">{{ scope.row.phone || (scope.row.children?.[0]?.phone) || '-' }}</span>
           </template>
         </el-table-column>
 
-        <el-table-column label="种类" prop="type" min-width="120" align="left">
+        <el-table-column label="种类/品种" min-width="160" align="left">
           <template #default="scope">
-            <div class="species-tag">
+            <div v-if="!scope.row.isGroup" class="species-tag">
               <span v-if="scope.row.type === '犬类' || scope.row.type === '狗'">🐶</span>
               <span v-else-if="scope.row.type === '鸟类'">🕊️</span>
               <span v-else-if="scope.row.type === '异宠'">🦎</span>
-              <span v-else>🐱</span>
-              {{ scope.row.type || '未登记' }}
+              <span v-else-if="scope.row.type === '猫类'">🐱</span>
+              {{ scope.row.type }} - {{ scope.row.breed || '基础' }}
             </div>
+            <span v-else>-</span>
           </template>
         </el-table-column>
 
-        <el-table-column label="当前治疗状态" prop="treatmentStatus" min-width="150" align="left">
+        <el-table-column label="档案状态" min-width="150" align="left">
           <template #default="scope">
-            <div 
+            <div v-if="!scope.row.isGroup"
               class="status-pill"
               :class="{'status-observing': scope.row.treatmentStatus === '观察中', 'status-recovered': scope.row.treatmentStatus === '已康复'}"
             >
               <span class="dot"></span>
-              {{ scope.row.treatmentStatus || '在此观察' }}
+              {{ scope.row.treatmentStatus || '正常' }}
             </div>
-          </template>
-        </el-table-column>
-
-        <el-table-column label="最后就诊时间" align="left" min-width="180">
-          <template #default="scope">
-            <span class="date-text">{{ parseTime(scope.row.lastVisitTime, '{y}/{m}/{d} {h}:{i}') || '-' }}</span>
+            <span v-else class="text-muted" style="font-size: 12px;">已实名归属</span>
           </template>
         </el-table-column>
 
         <el-table-column label="操作" align="center" width="120">
           <template #default="scope">
-            <div class="op-buttons">
+            <div v-if="!scope.row.isGroup" class="op-buttons">
               <div class="icon-btn edit-btn" @click="handleUpdate(scope.row)">
                 <el-icon><EditPen /></el-icon>
               </div>
@@ -97,7 +105,7 @@
     <el-dialog :title="title" v-model="open" width="600px" append-to-body class="premium-dialog">
       <el-form ref="petRef" :model="form" :rules="rules" label-width="100px">
         <el-row>
-          <el-col :span="24">
+          <el-col :span="24" class="avatar-col">
             <el-form-item label="萌宠影像" prop="avatar">
               <el-upload
                 class="avatar-uploader"
@@ -112,6 +120,11 @@
               </el-upload>
             </el-form-item>
           </el-col>
+          
+          <el-col :span="24">
+            <el-divider content-position="left">基础信息</el-divider>
+          </el-col>
+
           <el-col :span="12">
             <el-form-item label="宠物名字" prop="name">
               <el-input v-model="form.name" placeholder="请输入名字" />
@@ -123,8 +136,36 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
+            <el-form-item label="联系电话" prop="phone">
+              <el-input v-model="form.phone" placeholder="电话号码" />
+            </el-form-item>
+          </el-col>
+           <el-col :span="12">
+            <el-form-item label="绑定账户" prop="userId">
+              <el-select
+                v-model="form.userId"
+                filterable
+                remote
+                reserve-keyword
+                placeholder="搜索会员手机号"
+                :remote-method="remoteSearchMember"
+                :loading="memberLoading"
+                clearable
+                style="width: 100%"
+              >
+                <el-option
+                  v-for="item in memberOptions"
+                  :key="item.userId"
+                  :label="item.userId + ' - ' + (item.level === '0' ? '普通' : 'VIP')"
+                  :value="item.userId"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          
+          <el-col :span="12">
             <el-form-item label="主分类" prop="type">
-              <el-select v-model="form.type" placeholder="如: 犬类">
+              <el-select v-model="form.type" placeholder="如: 犬类" style="width: 100%">
                 <el-option label="猫类" value="猫类" />
                 <el-option label="犬类" value="犬类" />
                 <el-option label="鸟类" value="鸟类" />
@@ -133,34 +174,29 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="联系电话" prop="phone">
-              <el-input v-model="form.phone" placeholder="电话号码" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
             <el-form-item label="治疗状态" prop="treatmentStatus">
-               <el-select v-model="form.treatmentStatus" placeholder="当前状态">
+               <el-select v-model="form.treatmentStatus" placeholder="当前状态" style="width: 100%">
                 <el-option label="观察中" value="观察中" />
                 <el-option label="已康复" value="已康复" />
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :span="24">
             <el-form-item label="最后就诊" prop="lastVisitTime">
-              <el-date-picker clearable v-model="form.lastVisitTime" type="datetime" value-format="YYYY-MM-DD HH:mm:ss" placeholder="选择就诊时间" />
+              <el-date-picker clearable v-model="form.lastVisitTime" type="datetime" value-format="YYYY-MM-DD HH:mm:ss" placeholder="选择就诊时间" style="width: 100%" />
             </el-form-item>
           </el-col>
           <el-col :span="24">
             <el-form-item label="特征备注" prop="remark">
-              <el-input v-model="form.remark" type="textarea" placeholder="备注信息" />
+              <el-input v-model="form.remark" type="textarea" :rows="3" placeholder="填写宠物的特殊性格、过敏史等..." />
             </el-form-item>
           </el-col>
         </el-row>
       </el-form>
       <template #footer>
         <div class="dialog-footer">
-          <el-button type="primary" @click="submitForm">确 定</el-button>
-          <el-button @click="cancel">取 消</el-button>
+          <el-button @click="cancel" round>取 消</el-button>
+          <el-button type="primary" @click="submitForm" round>同步并保存</el-button>
         </div>
       </template>
     </el-dialog>
@@ -168,10 +204,11 @@
 </template>
 
 <script setup>
-import { ref, reactive, toRefs, onMounted } from "vue";
+import { ref, reactive, toRefs, onMounted, computed } from "vue";
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Search, Refresh, Plus, EditPen, Delete } from '@element-plus/icons-vue'
+import { Search, Refresh, Plus, EditPen, Delete, UserFilled } from '@element-plus/icons-vue'
 import { listPet, getPet, delPet, addPet, updatePet } from "@/api/hospital/pet";
+import { listMember } from "@/api/hospital/member";
 import { getToken } from '@/utils/auth';
 
 const baseUrl = import.meta.env.VITE_APP_BASE_API;
@@ -181,6 +218,8 @@ const headers = ref({ Authorization: 'Bearer ' + getToken() });
 const petList = ref([]);
 const open = ref(false);
 const loading = ref(true);
+const memberLoading = ref(false);
+const memberOptions = ref([]);
 const total = ref(0);
 const title = ref("");
 
@@ -197,6 +236,48 @@ const data = reactive({
 });
 
 const { queryParams, form, rules } = toRefs(data);
+
+/** 计算属性：将列表转换为树形结构（按主人分组） */
+const treePetList = computed(() => {
+  const groups = {};
+  const ungrouped = [];
+
+  petList.value.forEach(pet => {
+    // 优先使用 userId 作为分组标识，如果没有则使用 ownerName + phone
+    const groupKey = pet.userId ? `user_${pet.userId}` : (pet.ownerName ? `owner_${pet.ownerName}_${pet.phone}` : null);
+    
+    if (groupKey) {
+      if (!groups[groupKey]) {
+        groups[groupKey] = {
+          id: groupKey,
+          name: pet.ownerName || '神秘主人',
+          phone: pet.phone,
+          isGroup: true,
+          children: []
+        };
+      }
+      // 给宠物数据也加一个 id (Tree 要求 row-key 统一)
+      groups[groupKey].children.push({ ...pet, id: pet.petId });
+    } else {
+      ungrouped.push({ ...pet, id: pet.petId });
+    }
+  });
+
+  return [...Object.values(groups), ...ungrouped];
+});
+
+/** 远程搜索会员 */
+function remoteSearchMember(query) {
+  if (query !== "") {
+    memberLoading.value = true;
+    listMember({ phoneNumber: query }).then(response => {
+      memberOptions.value = response.data || [];
+      memberLoading.value = false;
+    });
+  } else {
+    memberOptions.value = [];
+  }
+}
 
 function getList() {
   loading.value = true;
@@ -230,6 +311,10 @@ function handleUpdate(row) {
   const petId = row.petId;
   getPet(petId).then(response => {
     form.value = response.data;
+    if (form.value.userId) {
+       // Pre-fill member options for the select
+       memberOptions.value = [{ userId: form.value.userId }];
+    }
     open.value = true;
     title.value = "修编宠物资料";
   });
@@ -499,4 +584,36 @@ onMounted(() => {
 .avatar-uploader .el-upload:hover { border-color: #409EFF; }
 .avatar-uploader-icon { font-size: 28px; color: #8c939d; width: 120px; height: 120px; line-height: 120px; text-align: center; }
 .avatar { width: 120px; height: 120px; display: block; object-fit: cover; }
+/* Tree Styles */
+.owner-group-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  color: #303133;
+}
+.owner-icon {
+  font-size: 18px;
+  color: #5D5FEF;
+}
+.owner-name {
+  margin-right: 8px;
+}
+.pet-count-tag {
+  background-color: #F0F2FF !important;
+  color: #5D5FEF !important;
+  border: none !important;
+}
+.pet-item-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-left: 20px;
+}
+.pet-name {
+  font-weight: 700;
+  color: #606266;
+}
+.text-muted { color: #909399; }
+.text-primary { color: #5D5FEF; }
 </style>

@@ -51,3 +51,48 @@ export function settleBilling(id, paymentMethod) {
     data: { id, paymentMethod }
   })
 }
+
+// 查询优惠券列表
+export function listCoupon(query) {
+  return request({
+    url: '/hospital/billing/couponList',
+    method: 'get',
+    params: query
+  })
+}
+
+// 新增优惠券模板
+export function addCoupon(data) {
+  return request({
+    url: '/hospital/billing/coupon',
+    method: 'post',
+    data: data
+  })
+}
+
+// 修改优惠券模板
+export function updateCoupon(data) {
+  return request({
+    url: '/hospital/billing/coupon',
+    method: 'put',
+    data: data
+  })
+}
+
+// 删除优惠券模板
+export function delCoupon(couponId) {
+  return request({
+    url: '/hospital/billing/coupon/' + couponId,
+    method: 'delete'
+  })
+}
+
+// 发放优惠券
+export function grantCoupon(userId, couponId) {
+  return request({
+    url: '/hospital/billing/grantCoupon',
+    method: 'post',
+    data: { userId, couponId }
+  })
+}
+
