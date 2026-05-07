@@ -25,6 +25,18 @@ const routes = [
     ]
   },
   {
+    path: '/hospital',
+    component: Layout,
+    children: [
+      {
+        path: 'chat',
+        component: () => import('@/views/hospital/chat/index.vue'),
+        name: 'HumanChat',
+        meta: { title: '人工服务', icon: 'ChatLineRound' }
+      }
+    ]
+  },
+  {
     path: '/404',
     component: () => import('@/views/error/404.vue'),
     hidden: true

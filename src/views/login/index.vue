@@ -32,17 +32,9 @@
         </el-form-item>
         
         <el-form-item prop="code" v-if="captchaEnabled">
-          <div class="captcha-wrapper">
-            <el-input 
-              v-model="loginForm.code" 
-              placeholder="动态验证码" 
-              :prefix-icon="Key"
-              class="captcha-input custom-input"
-            />
-            <div class="captcha-img" @click="getCaptcha">
-              <img v-if="captchaUrl" :src="captchaUrl" alt="验证码" />
-              <div v-else class="captcha-placeholder">加载中...</div>
-            </div>
+          <div class="captcha-wrapper" style="justify-content: center; height: 65px; margin-bottom: 5px;">
+            <!-- Cloudflare Turnstile Widget -->
+            <div id="cf-turnstile-widget"></div>
           </div>
         </el-form-item>
         
@@ -87,38 +79,59 @@ const loginForm = ref({
 
 const loginRules = {
   username: [{ required: true, message: '请输入', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入', trigger: 'blur' }],
-  code: [{ required: true, message: '请输入', trigger: 'blur' }]
+  password: [{ required: true, message: '请输入', trigger: 'blur' }]
+  // Turnstile token is validated manually before submitting
 }
 
-const getCaptcha = async () => {
-  try {
-    const res = await request({
-      url: '/captchaImage',
-      method: 'get'
-    })
-    captchaEnabled.value = res.captchaEnabled === undefined ? true : res.captchaEnabled
-    if (captchaEnabled.value) {
-      captchaUrl.value = 'data:image/jpeg;base64,' + res.img
-      loginForm.value.uuid = res.uuid
-    }
-  } catch (err) {
-    console.error('获取验证码失败:', err)
-    captchaUrl.value = ''
-    ElMessage.error('无法连接后端服务，请检查后端是否已启动')
+const getCaptcha = () => {
+  // Turnstile is loaded via script injection on mount
+  captchaEnabled.value = true
+  
+  // Define global callback for Turnstile
+  window.onTurnstileSuccess = (token) => {
+    loginForm.value.code = token;
   }
+
+  // Load Turnstile script dynamically if not exists
+  if (!document.getElementById('turnstile-script')) {
+    const script = document.createElement('script')
+    script.id = 'turnstile-script'
+    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback'
+    script.async = true
+    script.defer = true
+    document.head.appendChild(script)
+  } else {
+    // Reset if it already exists
+    if (window.turnstile) {
+      window.turnstile.reset('#cf-turnstile-widget')
+    }
+  }
+
+  window.onloadTurnstileCallback = function () {
+    window.turnstile.render('#cf-turnstile-widget', {
+      sitekey: '0x4AAAAAADKaMi_seIvchdAl',
+      callback: window.onTurnstileSuccess,
+    });
+  };
 }
 
 const handleLogin = () => {
   loginRef.value.validate(async (valid) => {
     if (valid) {
+      if (captchaEnabled.value && !loginForm.value.code) {
+        ElMessage.warning('请完成人机验证')
+        return
+      }
       loading.value = true
       try {
         await userStore.login(loginForm.value)
         ElMessage.success('欢迎回来')
         router.push('/')
       } catch (err) {
-        getCaptcha()
+        if (window.turnstile) {
+          window.turnstile.reset('#cf-turnstile-widget')
+        }
+        loginForm.value.code = '' // Clear code so user must verify again
       } finally {
         loading.value = false
       }

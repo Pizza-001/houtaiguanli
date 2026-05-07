@@ -3,10 +3,10 @@
     <el-card shadow="hover" class="query-card">
       <div class="card-header">
         <div class="label-group">
-          <el-icon><Gift /></el-icon>
+          <el-icon><Present /></el-icon>
           <span>积分商城管理</span>
         </div>
-      </view>
+      </div>
       
       <el-tabs v-model="activeTab" class="mall-tabs">
         <el-tab-pane label="商品上架管理" name="products">
@@ -66,7 +66,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { listPointsProduct, listExchangeRecord } from '@/api/points-mall'
-import { Gift } from '@element-plus/icons-vue'
+import { Present } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
 const loading = ref(false)
